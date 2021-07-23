@@ -1,6 +1,102 @@
 #include "Simulation.h"
+#include "userCommands.h"
 #include <stdlib.h>
 #include <string.h>
+
+static	pcb_queue_t	queue_ready;
+static	pcb_queue_t	queue_blocked;
+static	pcb_queue_t	queue_susp_ready;
+static	pcb_queue_t	queue_susp_blocked;
+
+pcb_queue_t	*queues[4];
+
+int sys_init (  /* int modules module code */)
+{
+	// mod_code = modules;
+        vec_save = 0L;
+
+        /* no handlers detected yet */
+	sysc_hand = FALSE;
+	trm_hand = FALSE;
+	prt_hand = FALSE;
+	com_hand = FALSE;
+
+	/* initialize allocation table */
+	for (alloc_ix=0; alloc_ix < MAX_ALLOC; alloc_ix++) {
+		alloc_table[alloc_ix].original = NULL;
+		alloc_table[alloc_ix].aligned = NULL;
+	}
+	alloc_ix = 0;
+	num_alloc = 0;
+
+	// /* if we have reached Module R3, enable system call handling */
+	// if (modules >= MODULE_R3) sysc_hand = TRUE;
+
+	// /* if we have reached the final module, enable device handlers */
+	// if (modules >= MODULE_F) {
+	// 	trm_hand = TRUE;
+	// 	prt_hand = TRUE;
+	// 	com_hand = TRUE;
+	}
+
+	/* get system date */
+        getdate(&sys_date);
+
+	return (OK);
+}
+
+/*! Must be called before using any other PCB or queue functions. */
+void init_pcb_queues(void)
+{
+	queues[0] = &queue_ready;
+	queue_ready.head		= NULL;
+	queue_ready.tail		= NULL;
+	queue_ready.length		= 0;
+	queue_ready.sort_order		= PRIORITY;
+
+	queues[1] = &queue_blocked;
+	queue_blocked.head		= NULL;
+	queue_blocked.tail		= NULL;
+	queue_blocked.length		= 0;
+	queue_blocked.sort_order	= FIFO;
+
+	queues[2] = &queue_susp_ready;
+	queue_susp_ready.head		= NULL;
+	queue_susp_ready.tail		= NULL;
+	queue_susp_ready.length		= 0;
+	queue_susp_ready.sort_order	= PRIORITY;
+
+	queues[3] = &queue_susp_blocked;
+	queue_susp_blocked.head		= NULL;
+	queue_susp_blocked.tail		= NULL;
+	queue_susp_blocked.length	= 0;
+	queue_susp_blocked.sort_order	= FIFO;
+}
+
+pcb_queue_t* get_queue_by_state (
+	/* [in] One of the valid process states. */
+	process_state_t state
+)
+{
+	switch (state) {
+		case READY:
+			return &queue_ready;
+		break;
+		case BLOCKED:
+			return &queue_blocked;
+		break;
+		case SUSP_READY:
+			return &queue_susp_ready;
+		break;
+		case SUSP_BLOCKED:
+			return &queue_susp_blocked;
+		break;
+		/* no default (to avoid stupid Turbo C warning.) */
+	}
+	/* case default: */
+	/*   ERROR: Totally Unexpected value for process state. */
+	return NULL;
+}
 
 pcb_t* allocate_pcb (void)
 {
@@ -120,6 +216,7 @@ pcb_t* setup_pcb (
 
 	return new_pcb;
 }
+
 /*! Search the given queue for the named process.
  *
  * @return Returns a pointer to the PCB, or NULL if not found or error.
